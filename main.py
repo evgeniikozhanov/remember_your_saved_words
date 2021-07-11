@@ -19,18 +19,19 @@ app = FastAPI()
 
 @app.post("/upload/")
 async def upload_words_pairs(upload_words_pairs_request: UploadWordsPairsRequest):
-    errors_list = []
     with open(upload_words_pairs_request.filename, newline='') as csv_file:
         csv_reader = csv.reader(csv_file, delimiter=',', quotechar='|')
+        objects_list = []
         for from_language, to_language, from_word, to_word in csv_reader:
-            try:
-                await SavedWord.create(from_language=from_language, to_language=to_language, from_word=from_word,
-                                       to_word=to_word, words_group_name=upload_words_pairs_request.filename,
-                                       cdate=datetime.now())
-            except OperationalError as e:
-                errors_list.append(str(e))
+            objects_list.append(SavedWord(from_language=from_language, to_language=to_language, from_word=from_word,
+                                          to_word=to_word, words_group_name=upload_words_pairs_request.filename,
+                                          cdate=datetime.now()))
+    try:
+        await SavedWord.bulk_create(objects_list, batch_size=100)
+    except OperationalError as e:
+        return {'ok': False, 'errors': [str(e), ]}
 
-    return {'ok': True, 'errors': errors_list}
+    return {'ok': True, 'errors': []}
 
 
 @app.on_event("startup")
